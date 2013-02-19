@@ -510,7 +510,8 @@ static int crypt_all_benchmark(int *pcount, struct db_salt *_salt)
 	gws = GET_MULTIPLE_BIGGER(count, local_work_size);
 
 	//Send data to device.
-	HANDLE_CLERROR(clEnqueueWriteBuffer(queue[ocl_gpu_id], pass_buffer, CL_FALSE, 0,
+	if (new_keys)
+		HANDLE_CLERROR(clEnqueueWriteBuffer(queue[ocl_gpu_id], pass_buffer, CL_FALSE, 0,
 			sizeof(sha256_password) * gws, plaintext, 0, NULL, &multi_profilingEvent[0]),
 			"failed in clEnqueueWriteBuffer pass_buffer");
 
