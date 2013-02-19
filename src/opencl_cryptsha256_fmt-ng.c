@@ -45,7 +45,7 @@ static cl_mem pinned_saved_keys, pinned_partial_hashes;
 static cl_kernel prepare_kernel[MAXGPUS], main_kernel[MAXGPUS], final_kernel[MAXGPUS];
 
 static int new_keys, source_in_use;
-static int split_events[3] = { 2, 5, 6 };
+static int split_events[3] = { 1, 4, 5 };
 
 static int crypt_all(int *pcount, struct db_salt *_salt);
 static int crypt_all_benchmark(int *pcount, struct db_salt *_salt);
@@ -261,6 +261,12 @@ static void * get_salt(char *ciphertext) {
 static void set_salt(void * salt_info) {
 
 	salt = salt_info;
+
+	//Send salt information to GPU.
+	HANDLE_CLERROR(clEnqueueWriteBuffer(queue[ocl_gpu_id], salt_buffer, CL_FALSE, 0,
+		sizeof(sha256_salt), (void * ) salt, 0, NULL, NULL),
+		"failed in clEnqueueWriteBuffer salt_buffer");
+	HANDLE_CLERROR(clFlush(queue[ocl_gpu_id]), "failed in clFlush");
 }
 
 static int salt_hash(void * salt) {
@@ -369,7 +375,7 @@ static void init(struct fmt_main * self) {
 	opencl_get_user_preferences(CONFIG_NAME);
 
 	//Initialize openCL tuning (library) for this format.
-	opencl_init_auto_setup(STEP, HASH_LOOPS, ((_SPLIT_KERNEL_IN_USE) ? 8 : 4),
+	opencl_init_auto_setup(STEP, HASH_LOOPS, ((_SPLIT_KERNEL_IN_USE) ? 7 : 3),
 		((_SPLIT_KERNEL_IN_USE) ? split_events : NULL),
 		warn, &multi_profilingEvent[2], self, create_clobj, release_clobj,
 		sizeof(sha256_password));
@@ -504,37 +510,33 @@ static int crypt_all_benchmark(int *pcount, struct db_salt *_salt)
 	gws = GET_MULTIPLE_BIGGER(count, local_work_size);
 
 	//Send data to device.
-	HANDLE_CLERROR(clEnqueueWriteBuffer(queue[ocl_gpu_id], salt_buffer, CL_FALSE, 0,
-			sizeof(sha256_salt), salt, 0, NULL, &multi_profilingEvent[0]),
-			"failed in clEnqueueWriteBuffer salt_buffer");
-
 	HANDLE_CLERROR(clEnqueueWriteBuffer(queue[ocl_gpu_id], pass_buffer, CL_FALSE, 0,
-			sizeof(sha256_password) * gws, plaintext, 0, NULL, &multi_profilingEvent[1]),
+			sizeof(sha256_password) * gws, plaintext, 0, NULL, &multi_profilingEvent[0]),
 			"failed in clEnqueueWriteBuffer pass_buffer");
 
 	//Enqueue the kernel
 	if (_SPLIT_KERNEL_IN_USE) {
 		HANDLE_CLERROR(clEnqueueNDRangeKernel(queue[ocl_gpu_id], prepare_kernel[ocl_gpu_id], 1, NULL,
-			&gws, &local_work_size, 0, NULL, &multi_profilingEvent[4]),
+			&gws, &local_work_size, 0, NULL, &multi_profilingEvent[3]),
 			"failed in clEnqueueNDRangeKernel I");
 
 		for (i = 0; i < 3; i++) {
 			HANDLE_CLERROR(clEnqueueNDRangeKernel(queue[ocl_gpu_id], main_kernel[ocl_gpu_id], 1, NULL,
 				&gws, &local_work_size, 0, NULL,
-				&multi_profilingEvent[split_events[i]]),  //2 ,5 ,6
+				&multi_profilingEvent[split_events[i]]),  //1 ,4 ,5
 				"failed in clEnqueueNDRangeKernel");
 		}
 		HANDLE_CLERROR(clEnqueueNDRangeKernel(queue[ocl_gpu_id], final_kernel[ocl_gpu_id], 1, NULL,
-			&gws, &local_work_size, 0, NULL, &multi_profilingEvent[7]),
+			&gws, &local_work_size, 0, NULL, &multi_profilingEvent[6]),
 			"failed in clEnqueueNDRangeKernel II");
 	} else
 		HANDLE_CLERROR(clEnqueueNDRangeKernel(queue[ocl_gpu_id], main_kernel[ocl_gpu_id], 1, NULL,
-			&gws, &local_work_size, 0, NULL, &multi_profilingEvent[2]),
+			&gws, &local_work_size, 0, NULL, &multi_profilingEvent[1]),
 			"failed in clEnqueueNDRangeKernel");
 
 	//Read back hashes
 	HANDLE_CLERROR(clEnqueueReadBuffer(queue[ocl_gpu_id], hash_buffer, CL_FALSE, 0,
-			sizeof(sha256_hash) * gws, calculated_hash, 0, NULL, &multi_profilingEvent[3]),
+			sizeof(sha256_hash) * gws, calculated_hash, 0, NULL, &multi_profilingEvent[2]),
 			"failed in reading data back");
 
 	//Do the work
@@ -552,10 +554,6 @@ static int crypt_all(int *pcount, struct db_salt *_salt)
 	gws = GET_MULTIPLE_BIGGER(count, local_work_size);
 
 	//Send data to device.
-	HANDLE_CLERROR(clEnqueueWriteBuffer(queue[ocl_gpu_id], salt_buffer, CL_FALSE, 0,
-			sizeof(sha256_salt), salt, 0, NULL, NULL),
-			"failed in clEnqueueWriteBuffer salt_buffer");
-
 	if (new_keys)
 		HANDLE_CLERROR(clEnqueueWriteBuffer(queue[ocl_gpu_id], pass_buffer, CL_FALSE, 0,
 				sizeof(sha256_password) * gws, plaintext, 0, NULL, NULL),
