@@ -346,7 +346,7 @@ static void john_register_all(void)
 		john_register_one(&fmt_opencl_zip);
 		/* The following two need to be last until they are fixed
 		   for new --device handling */
-		john_register_one(&fmt_opencl_bf);
+		//john_register_one(&fmt_opencl_bf); It does not work on a set of places.
 		john_register_one(&fmt_opencl_DES);
 	}
 #endif
