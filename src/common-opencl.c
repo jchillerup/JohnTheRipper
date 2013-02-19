@@ -1307,7 +1307,7 @@ void opencl_init_Sayantan(char *kernel_filename, unsigned int dev_id, unsigned i
 
 	kernel_loaded=0;
 	opencl_init_dev(sequential_id);
-	opencl_build_kernel_save(kernel_filename, sequential_id, options, 1, 0);
+	opencl_build_kernel_save(kernel_filename, sequential_id, options, 1, 1);
 }
 
 void opencl_init_opt(char *kernel_filename, unsigned int sequential_id, char *options)
