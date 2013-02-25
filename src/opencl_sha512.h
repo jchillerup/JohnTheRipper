@@ -118,16 +118,6 @@ __constant uint64_t clear_mask[] = {
     if (pos < 15)                                  \
        dest[pos+1] = (tmp == 0 ? (uint64_t) 0 : (src >> (64 - tmp)));  \
 }
-/* ------------------------------------------
- * Put inside APPEND_FINAL
- * ------------------------------------------
-
-    if (ctx->buflen == 128) { / * Branching * /    \
-        sha512_block(ctx);                         \
-	ctx->buflen = 0;                           \
-    }                                              \
-**/
-
 #endif
 
 #endif	/* OPENCL_SHA512_H */
