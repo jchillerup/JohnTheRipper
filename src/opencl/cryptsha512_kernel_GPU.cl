@@ -506,15 +506,20 @@ inline void sha512_crypt(sha512_buffers * fast_buffers,
             APPEND(ctx->buffer->mem_64, alt_result->mem_64[4], ctx->total + 32);
             APPEND(ctx->buffer->mem_64, alt_result->mem_64[5], ctx->total + 40);
             APPEND(ctx->buffer->mem_64, alt_result->mem_64[6], ctx->total + 48);
+            ctx->buflen = ctx->total + 64U;
             APPEND_FINAL(ctx->buffer->mem_64, alt_result->mem_64[7], ctx->total + 56);
             ctx->total += 64U;
         } else {
             APPEND(ctx->buffer->mem_64, p_sequence->mem_64[0], ctx->total);
             APPEND(ctx->buffer->mem_64, p_sequence->mem_64[1], ctx->total + 8);
+            ctx->buflen = ctx->total + passlen;
             APPEND_FINAL(ctx->buffer->mem_64, p_sequence->mem_64[2], ctx->total + 16);
             ctx->total += passlen;
         }
-        sha512_digest_special(ctx);
+        if (ctx->total == 128)
+            sha512_digest(ctx);
+        else
+            sha512_digest_special(ctx);
         sha512_digest_move(ctx, alt_result->mem_64, BUFFER_ARRAY);
     }
 }
